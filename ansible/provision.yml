@@ -1,0 +1,105 @@
+---
+- name: Сustomization PXE Server  
+  hosts: servers  
+  become: yes  
+  tasks:
+  - name: Update and upgrade apt packages
+    apt:
+      update_cache: yes
+      upgrade: yes
+
+  - name: Install dnsmasq
+    apt:
+       name: dnsmasq
+       state: latest
+
+  - name: copy pxe.conf
+    copy:
+      src: pxe.conf
+      dest: /etc/dnsmasq.d/pxe.conf
+      owner: root
+      group: root
+      mode: 0755
+  
+  - name: Creates directory /srv/tftp
+    ansible.builtin.file:
+      path: /srv/tftp
+      state: directory
+
+  - name: Download ubuntu-24.04.2-netboot-amd64.tar.gz
+    ansible.builtin.get_url:
+      url: https://releases.ubuntu.com/noble/ubuntu-24.04.2-netboot-amd64.tar.gz
+      dest: /srv/tftp/ubuntu-24.04.2-netboot-amd64.tar.gz      
+      
+  - name: Unarchive ubuntu-24.04.2-netboot-amd64.tar.gz
+    ansible.builtin.unarchive:
+      src: /srv/tftp/ubuntu-24.04.2-netboot-amd64.tar.gz
+      dest: /srv/tftp/
+      remote_src: yes
+
+  - name: Restart service dnsmasq
+    ansible.builtin.systemd_service:
+      name: dnsmasq.service
+      state: restarted
+
+  - name: Install Apache2
+    apt:
+       name: apache2
+       state: latest
+
+  - name: Creates directory /srv/images
+    ansible.builtin.file:
+      path: /srv/images
+      state: directory
+
+  - name: Download ubuntu-24.04.2-netboot-amd64.tar.gz
+    ansible.builtin.get_url:
+      url: https://releases.ubuntu.com/noble/ubuntu-24.04.2-live-server-amd64.iso
+      dest: /srv/images/ubuntu-24.04.2-live-server-amd64.iso
+
+  - name: copy ks-server.conf
+    copy:
+      src: ks-server.conf
+      dest: /etc/apache2/sites-available/ks-server.conf
+      owner: root
+      group: root
+      mode: 0755
+
+  - name: a2ensite ks-server.conf
+    command: a2ensite ks-server    
+
+  - name: Creates directory /srv/ks/
+    ansible.builtin.file:
+      path: /srv/ks
+      state: directory
+  
+  - name: copy user-data
+    copy:
+      src: user-data
+      dest: /srv/ks/user-data
+      owner: root
+      group: root
+      mode: 0755
+
+  - name: Create meta-data
+    ansible.builtin.file:
+        path: /srv/ks/meta-data
+        state: touch  
+  
+  - name: copy default
+    copy:
+      src: default
+      dest: /srv/tftp/amd64/pxelinux.cfg/default
+      owner: root
+      group: root
+      mode: 0755
+
+  - name: Restart service dnsmasq
+    ansible.builtin.systemd_service:
+      name: dnsmasq
+      state: restarted
+
+  - name: Restart service apache2
+    ansible.builtin.systemd_service:
+      name: apache2
+      state: restarted
